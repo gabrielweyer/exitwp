@@ -71,9 +71,6 @@ def should_download_image(blog_link, a_href):
     return (a_href.startswith(blog_link) or ".files.wordpress.com/" in a_href) and a_href.endswith(".png")
 
 def html2fmt(html, target_format):
-    #   html = html.replace("\n\n", '<br/><br/>')
-    #   html = html.replace('<pre lang="xml">', '<pre lang="xml"><![CDATA[')
-    #   html = html.replace('</pre>', ']]></pre>')
     if target_format == 'html':
         return html
     else:
@@ -146,7 +143,6 @@ def parse_wp_xml(file):
             body = gi('content:encoded')
 
             for key in body_replace:
-                # body = body.replace(key, body_replace[key])
                 body = re.sub(key, body_replace[key], body)
 
             img_srcs = []
@@ -305,8 +301,6 @@ def write_jekyll(data, target_format):
         if (not os.path.exists(target_dir)):
             os.makedirs(target_dir)
 
-        # if src not in attachments[dir]:
-        #     print target_name
         return target_file
 
     for i in data['items']:
