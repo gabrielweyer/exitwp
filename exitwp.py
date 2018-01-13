@@ -67,6 +67,8 @@ class ns_tracker_tree_builder(XMLTreeBuilder):
     def _start_ns(self, prefix, ns):
         self.namespaces[prefix] = '{' + ns + '}'
 
+def should_download_image(blog_link, a_href):
+    return (a_href.startswith(blog_link) or ".files.wordpress.com/" in a_href) and a_href.endswith(".png")
 
 def html2fmt(html, target_format):
     #   html = html.replace("\n\n", '<br/><br/>')
@@ -81,7 +83,7 @@ def html2fmt(html, target_format):
 def parse_wp_xml(file):
     parser = ns_tracker_tree_builder()
     tree = ElementTree()
-    print 'reading: ' + wpe
+    print '\nReading file "{0}"\n'.format(wpe)
     root = tree.parse(file, parser)
     ns = parser.namespaces
     ns[''] = ''
@@ -97,6 +99,8 @@ def parse_wp_xml(file):
 
     def parse_items():
         export_items = []
+        blog_link = c.find('link').text
+        print 'Blog link is "{0}"'.format(blog_link)
         xml_items = c.findall('item')
         for i in xml_items:
             taxanomies = i.findall('category')
@@ -123,7 +127,6 @@ def parse_wp_xml(file):
                     tag = q
                 try:
                     result = i.find(ns[namespace] + tag).text
-                    print result.encode('utf-8')
                 except AttributeError:
                     result = 'No Content Found'
                     if empty:
@@ -132,7 +135,16 @@ def parse_wp_xml(file):
                     result = unicode(result)
                 return result
 
+            print '\nParsing "{0}"\n'.format(gi('link'))
+
+            postType = gi('wp:post_type')
+
+            if postType != 'page' and postType != 'post':
+                print 'Skipping the item because the type is "{0}"'.format(postType)
+                continue
+
             body = gi('content:encoded')
+
             for key in body_replace:
                 # body = body.replace(key, body_replace[key])
                 body = re.sub(key, body_replace[key], body)
@@ -140,13 +152,37 @@ def parse_wp_xml(file):
             img_srcs = []
             if body is not None:
                 try:
-                    soup = BeautifulSoup(body)
+                    print 'Attempting to find images'
+                    soup = BeautifulSoup(body, 'html.parser')
+
+                    print 'Parsing <a> tags'
+
+                    a_tags = soup.find_all('a')
+                    for a_tag in a_tags:
+                        a_href = a_tag.get('href')
+
+                        if (should_download_image(blog_link, a_href)):
+                            if a_href not in img_srcs:
+                                print 'Found image "{0}"'.format(a_href)
+                                img_srcs.append(a_href)
+                        else:
+                            print 'Skipped "{0}" because it\'s not an image or not hosted on blog'.format(a_href)
+
+                    print 'Parsing <img> tags'
+
                     img_tags = soup.find_all('img')
-                    for img in img_tags:
-                        img_srcs.append(img['src'])
+                    for img_tag in img_tags:
+                        img_src = img_tag.get('src')
+
+                        if img_src not in img_srcs:
+                            print 'Found image "{0}"'.format(img_src)
+                            img_srcs.append(img_src)
+
+                    print 'Found {0} image(s)'.format(len(img_srcs))
+                except Exception as e:
+                    print(e)
                 except:
-                    print 'could not parse html: ' + body
-            # print img_srcs
+                    print "Could not parse HTML when attempting to find imgs:", sys.exc_info()[0]
 
             excerpt = gi('excerpt:encoded', empty=True)
 
@@ -176,10 +212,9 @@ def parse_wp_xml(file):
         'items': parse_items(),
     }
 
-
 def write_jekyll(data, target_format):
 
-    sys.stdout.write('writing')
+    print 'Writing'
     item_uids = {}
     attachments = {}
 
@@ -285,8 +320,6 @@ def write_jekyll(data, target_format):
         if(skip_item):
             continue
 
-        sys.stdout.write('.')
-        sys.stdout.flush()
         out = None
         yaml_header = {
             'title': i['title'],
@@ -328,7 +361,9 @@ def write_jekyll(data, target_format):
         else:
             print 'Unknown item type :: ' + i['type']
 
+        print '\nDownload {0} image(s) for "{1}"'.format(len(i['img_srcs']), i['link'])
         if download_images:
+            print 'download_images is set to True, importing images'
             for img in i['img_srcs']:
                 try:
                     urlretrieve(urljoin(data['header']['link'],
@@ -337,6 +372,8 @@ def write_jekyll(data, target_format):
                 except:
                     print '\n unable to download ' + urljoin(
                         data['header']['link'], img.encode('utf-8'))
+        else:
+            print 'download_images is set to False, skipping images import'
 
         if out is not None:
             def toyaml(data):
@@ -373,4 +410,4 @@ for wpe in wp_exports:
     data = parse_wp_xml(wpe)
     write_jekyll(data, target_format)
 
-print 'done'
+print 'Done'
