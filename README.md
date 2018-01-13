@@ -1,6 +1,6 @@
 # Exitwp
 
-Exitwp is tool for making migration from one or more WordPress blogs to the [`Jekyll blog engine`][jekyll] as easy as possible.
+Exitwp is tool for making migration from one or more WordPress blogs to the [Jekyll blog engine][jekyll] as easy as possible.
 
 By default it will try to convert as much information as possible from WordPress but can also be told to filter the amount of data it converts.
 
@@ -22,13 +22,13 @@ The latest version of these docs should always be available at [https://github.c
 * [PyYAML][py-yaml]: Reading configuration files and writing YAML headers (Python)
 * [Beautiful soup][beautiful-soup]: Parsing and downloading of post images/attachments (Python)
 
-## Installing dependencies in Ubuntu/Debian
+### Installing dependencies in Ubuntu/Debian
 
 ```bash
 sudo apt-get install python-yaml python-bs4 python-html2text
 ```
 
-## Installing Python dependencies using python package installer (pip)
+### Installing Python dependencies using Python package installer (pip)
 
 From the checked out root for this project, type:
 
@@ -42,7 +42,7 @@ Note that `PyYAML` will require other packages to compile correctly under Ubuntu
 sudo apt-get install libyaml-dev python-dev build-essential
 ```
 
-## Using Vagrant for dependency management
+### Using Vagrant for dependency management
 
 In the event your local system is incompatible with the dependencies listed (or you'd rather not install them), you can use the included Vagrantfile to start a VM with all necessary dependencies installed.
 
@@ -54,6 +54,25 @@ In the event your local system is incompatible with the dependencies listed (or 
 1. After the converter completes, exit the `SSH` session using `exit`
 1. You should now have all the blogs converted into separate directories under the `build` directory
 1. **Important**: Once satisfied with the results, run `vagrant destroy -f` to shut down the VM and remove the virtual drive from your local machine
+
+## Run via Docker
+
+### Build the Docker image
+
+In this directory run:
+
+```bash
+docker build -t gabrielweyer/exitwp .
+```
+
+### Run
+
+* `/exitwp/wordpress-xml` should be mapped to the directory containing your WordPress export
+* `/exitwp/build` should be mapped to the directory where you wish to generate the Jekyll files
+
+```posh
+docker run --rm --volume E:\tmp\exitwp\wordpress-xml:/exitwp/wordpress-xml --volume E:\tmp\exitwp\build:/exitwp/build gabrielweyer/exitwp
+```
 
 ## Configuration/Customization
 
@@ -69,15 +88,16 @@ Some things like custom handling of non standard post types is not fully configu
 
 ## Other Tools
 
-* A Gist to convert WP-Footnotes style footnotes to PHP Markdown Extra style footnotes: https://gist.github.com/1246047
+* A [Gist][gist] to convert WP-Footnotes style footnotes to PHP Markdown Extra style footnotes
 
 [jekyll]: https://github.com/jekyll/jekyll
 [exitwp-gw]: https://github.com/thomasf/exitwp
 [exitwp]: https://github.com/thomasf/exitwp
 [zipball]: https://github.com/gabrielweyer/exitwp/zipball/master
-[python]: http://python.org/
+[python]: https://www.python.org/
 [html2text]: http://www.aaronsw.com/2002/html2text/
-[py-yaml]: http://pyyaml.org/wiki/PyYAML
-[beautiful-soup]: http://www.crummy.com/software/BeautifulSoup/
+[py-yaml]: https://pyyaml.org/wiki/PyYAML
+[beautiful-soup]: https://www.crummy.com/software/BeautifulSoup/
 [configuration-file]: https://github.com/gabrielweyer/exitwp/blob/master/config.yaml
 [source-code]: https://github.com/gabrielweyer/exitwp/blob/master/exitwp.py
+[gist]: https://gist.github.com/1246047
