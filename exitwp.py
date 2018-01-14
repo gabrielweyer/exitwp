@@ -67,6 +67,38 @@ class ns_tracker_tree_builder(XMLTreeBuilder):
     def _start_ns(self, prefix, ns):
         self.namespaces[prefix] = '{' + ns + '}'
 
+item_uids = {}
+
+def get_item_file_name(wordpress_id, date, slug, title, date_prefix=False, namespace=''):
+    result = None
+    if namespace not in item_uids:
+        item_uids[namespace] = {}
+
+    if wordpress_id in item_uids[namespace]:
+        result = item_uids[namespace][wordpress_id]
+    else:
+        uid = []
+        if (date_prefix):
+            dt = datetime.strptime(date, date_fmt)
+            uid.append(dt.strftime('%Y-%m-%d'))
+            uid.append('-')
+        s_title = slug
+        if s_title is None or s_title == '':
+            s_title = title
+        if s_title is None or s_title == '':
+            s_title = 'untitled'
+        s_title = s_title.replace(' ', '_')
+        s_title = re.sub('[^a-zA-Z0-9_-]', '', s_title)
+        uid.append(s_title)
+        fn = ''.join(uid)
+        n = 1
+        while fn in item_uids[namespace]:
+            n = n + 1
+            fn = ''.join(uid) + '_' + str(n)
+            item_uids[namespace][i['wp_id']] = fn
+        result = fn
+        return result
+
 def should_download_image(blog_link, a_href):
     return (a_href.startswith(blog_link) or ".files.wordpress.com/" in a_href) and a_href.endswith(".png")
 
@@ -74,8 +106,9 @@ def html2fmt(html, target_format):
     if target_format == 'html':
         return html
     else:
-        return html2text_file(html, None)
-
+        html = html2text_file(html, None)
+        html = re.sub(r'(?<=\()(/assets/.*?)(?=\))', '{{ "\g<0>" | prepend: site.baseurl }}', html)
+        return html
 
 def parse_wp_xml(file):
     parser = ns_tracker_tree_builder()
@@ -140,6 +173,12 @@ def parse_wp_xml(file):
                 print 'Skipping the item because the type is "{0}"'.format(postType)
                 continue
 
+            status = gi('wp:status')
+
+            if status != 'publish':
+                print 'Skipping the item because the status is "{0}"'.format(status)
+                continue
+
             body = gi('content:encoded')
 
             for key in body_replace:
@@ -155,7 +194,7 @@ def parse_wp_xml(file):
 
                     a_tags = soup.find_all('a')
                     for a_tag in a_tags:
-                        a_href = a_tag.get('href')
+                        a_href = a_tag.attrs['href']
 
                         if (should_download_image(blog_link, a_href)):
                             if a_href not in img_srcs:
@@ -168,7 +207,7 @@ def parse_wp_xml(file):
 
                     img_tags = soup.find_all('img')
                     for img_tag in img_tags:
-                        img_src = img_tag.get('src')
+                        img_src = img_tag.attrs['src']
 
                         if img_src not in img_srcs:
                             print 'Found image "{0}"'.format(img_src)
@@ -179,6 +218,15 @@ def parse_wp_xml(file):
                     print(e)
                 except:
                     print "Could not parse HTML when attempting to find imgs:", sys.exc_info()[0]
+
+            print 'Replacing images sources'
+            for img_src in img_srcs:
+                url = urlparse(img_src)
+                file_name = os.path.basename(url.path)
+                jekyll_file_name = get_item_file_name(gi('wp:post_id'), gi('wp:post_date_gmt'), gi('wp:post_name'), gi('title'), date_prefix=True)
+                jekyll_url = '/assets/{0}/{1}'.format(jekyll_file_name, file_name)
+                print 'Replacing "{0}" by "{1}"'.format(img_src, jekyll_url)
+                body = re.sub(img_src, jekyll_url, body)
 
             excerpt = gi('excerpt:encoded', empty=True)
 
@@ -211,56 +259,15 @@ def parse_wp_xml(file):
 def write_jekyll(data, target_format):
 
     print 'Writing'
-    item_uids = {}
     attachments = {}
 
-    def get_blog_path(data, path_infix='jekyll'):
-        name = data['header']['link']
-        name = re.sub('^https?', '', name)
-        name = re.sub('[^A-Za-z0-9_.-]', '', name)
-        return os.path.normpath(build_dir + '/' + path_infix + '/' + name)
-
-    blog_dir = get_blog_path(data)
+    blog_dir = os.path.normpath(build_dir)
 
     def get_full_dir(dir):
         full_dir = os.path.normpath(blog_dir + '/' + dir)
         if (not os.path.exists(full_dir)):
             os.makedirs(full_dir)
         return full_dir
-
-    def open_file(file):
-        f = codecs.open(file, 'w', encoding='utf-8')
-        return f
-
-    def get_item_uid(item, date_prefix=False, namespace=''):
-        result = None
-        if namespace not in item_uids:
-            item_uids[namespace] = {}
-
-        if item['wp_id'] in item_uids[namespace]:
-            result = item_uids[namespace][item['wp_id']]
-        else:
-            uid = []
-            if (date_prefix):
-                dt = datetime.strptime(item['date'], date_fmt)
-                uid.append(dt.strftime('%Y-%m-%d'))
-                uid.append('-')
-            s_title = item['slug']
-            if s_title is None or s_title == '':
-                s_title = item['title']
-            if s_title is None or s_title == '':
-                s_title = 'untitled'
-            s_title = s_title.replace(' ', '_')
-            s_title = re.sub('[^a-zA-Z0-9_-]', '', s_title)
-            uid.append(s_title)
-            fn = ''.join(uid)
-            n = 1
-            while fn in item_uids[namespace]:
-                n = n + 1
-                fn = ''.join(uid) + '_' + str(n)
-                item_uids[namespace][i['wp_id']] = fn
-            result = fn
-        return result
 
     def get_item_path(item, dir=''):
         full_dir = get_full_dir(dir)
@@ -274,7 +281,14 @@ def write_jekyll(data, target_format):
         filename_parts.append(target_format)
         return ''.join(filename_parts)
 
-    def get_attachment_path(src, dir, dir_prefix='images'):
+    def open_file(file):
+        f = codecs.open(file, 'w', encoding='utf-8')
+        return f
+
+    def get_item_uid(item, date_prefix=False, namespace=''):
+        return get_item_file_name(item['wp_id'], item['date'], item['slug'], item['title'], date_prefix, namespace) 
+
+    def get_attachment_path(src, dir, dir_prefix='assets'):
         try:
             files = attachments[dir]
         except KeyError:
@@ -397,7 +411,6 @@ def write_jekyll(data, target_format):
                 print '\n Parse error on: ' + i['title']
 
             out.close()
-    print '\n'
 
 wp_exports = glob(wp_exports + '/*.xml')
 for wpe in wp_exports:
