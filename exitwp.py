@@ -228,22 +228,16 @@ def parse_wp_xml(file):
                 print 'Replacing "{0}" by "{1}"'.format(img_src, jekyll_url)
                 body = re.sub(img_src, jekyll_url, body)
 
-            excerpt = gi('excerpt:encoded', empty=True)
-
             export_item = {
                 'title': gi('title'),
                 'link': gi('link'),
-                'author': gi('dc:creator'),
                 'date': gi('wp:post_date_gmt'),
                 'slug': gi('wp:post_name'),
-                'status': gi('wp:status'),
                 'type': gi('wp:post_type'),
                 'wp_id': gi('wp:post_id'),
                 'parent': gi('wp:post_parent'),
-                'comments': gi('wp:comment_status') == u'open',
                 'taxanomies': export_taxanomies,
                 'body': body,
-                'excerpt': excerpt,
                 'img_srcs': img_srcs
             }
 
@@ -331,18 +325,9 @@ def write_jekyll(data, target_format):
         out = None
         yaml_header = {
             'title': i['title'],
-            'link': i['link'],
-            'author': i['author'],
             'date': datetime.strptime(
-                i['date'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=UTC()),
-            'slug': i['slug'],
-            'wordpress_id': int(i['wp_id']),
-            'comments': i['comments'],
+                i['date'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=UTC())
         }
-        if len(i['excerpt']) > 0:
-            yaml_header['excerpt'] = i['excerpt']
-        if i['status'] != u'publish':
-            yaml_header['published'] = False
 
         if i['type'] == 'post':
             i['uid'] = get_item_uid(i, date_prefix=True)
