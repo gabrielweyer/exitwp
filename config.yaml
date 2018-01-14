@@ -4,8 +4,8 @@ wp_exports: wordpress-xml
 # The target directory where all output is saved.
 build_dir: build
 
-# Output format: primary choices are html or markdown.
-target_format: markdown
+# Output format: primary choices are html or md.
+target_format: md
 
 # The date format of the wikipedia export file.
 # I'm not sure if this ever differs depending on wordpress localization.
