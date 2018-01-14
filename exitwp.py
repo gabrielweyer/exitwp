@@ -107,7 +107,16 @@ def html2fmt(html, target_format):
         return html
     else:
         html = html2text_file(html, None)
+
+        print 'Fix images URL'
         html = re.sub(r'(?<=\()(/assets/.*?)(?=\))', '{{ "\g<0>" | prepend: site.baseurl }}', html)
+
+        print 'Fix Gists - 1/2'
+        html = re.sub(r'(\[gist\])(\w+?)(\[/gist\])', '{% gist \g<2> %}', html)
+
+        print 'Fix Gists - 2/2'
+        html = re.sub(r'(\[gist\].+?)(\w+?)(\[/gist\])', '{% gist \g<2> %}', html)
+
         return html
 
 def parse_wp_xml(file):
